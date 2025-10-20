@@ -36,12 +36,12 @@ export async function middleware(request: NextRequest) {
     }
 
     // Redirect to onboarding if brand profile not completed
-    if (!token.brandProfileCompleted && pathname !== "/onboarding" && !pathname.startsWith("/api")) {
+    if (!token.hasCompletedOnboarding && pathname !== "/onboarding" && !pathname.startsWith("/api")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
     // Redirect to dashboard if trying to access onboarding with completed profile
-    if (token.brandProfileCompleted && pathname === "/onboarding") {
+    if (token.hasCompletedOnboarding && pathname === "/onboarding") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

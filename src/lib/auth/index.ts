@@ -47,6 +47,7 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           plan: user.plan,
           isAdmin: user.isAdmin,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
         };
       },
     }),
@@ -87,25 +88,30 @@ export const authOptions: NextAuthOptions = {
         const [brandProfile] = await db
           .select()
           .from(brandProfiles)
-          .where(eq(brandProfiles.user_id, user.id!))
+          .where(eq(brandProfiles.userId, user.id!))
           .limit(1);
-        token.brandProfileCompleted = !!brandProfile;
+        token.hasCompletedOnboarding = !!brandProfile;
       }
       // Handle session update trigger (when you call update())
       if (
         trigger === "update" &&
-        session?.user?.brandProfileCompleted !== undefined
+        session?.user?.hasCompletedOnboarding !== undefined
       ) {
-        token.brandProfileCompleted = session.user.brandProfileCompleted;
+        token.hasCompletedOnboarding = session.user.hasCompletedOnboarding;
       }
       return token;
     },
-    async session({ session, token }: any) {
-      if (session.user) {
+    async session({ session, token }) {
+      if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.plan = token.plan;
-        session.user.isAdmin = token.isAdmin;
-        session.user.brandProfileCompleted = token.brandProfileCompleted;
+
+        // Fetch from users table
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, token.id as string),
+        });
+
+        session.user.hasCompletedOnboarding =
+          user?.hasCompletedOnboarding || false;
       }
       return session;
     },

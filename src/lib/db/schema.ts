@@ -1,20 +1,24 @@
-// schema.ts - Drizzle ORM (pg) schema for Ecommerce Marketing Tool
+// db/schema.ts - Optimized Schema for MVP Phase
 import {
   pgTable,
   text,
   uuid,
   varchar,
   integer,
-  json,
+  jsonb,
   timestamp,
   boolean,
-  serial,
   numeric,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 
-// Enums
+// ========================================
+// ENUMS
+// ========================================
+
 export const planEnum = pgEnum("plan_enum", [
   "free",
   "starter_monthly",
@@ -23,110 +27,341 @@ export const planEnum = pgEnum("plan_enum", [
   "growth_yearly",
   "enterprise",
 ]);
+
 export const requestStatusEnum = pgEnum("request_status_enum", [
   "pending",
   "processing",
-  "done",
-  "failed",
-]);
-export const headlineTypeEnum = pgEnum("headline_type_enum", [
-  "benefit-driven",
-  "question",
-  "how-to",
-  "list",
-  "challenge",
-  "testimonial",
-]);
-export const toneEnum = pgEnum("tone_enum", [
-  "professional",
-  "casual-friendly",
-  "luxury-sophisticated",
-  "technical-detailed",
-  "energetic-exciting",
-]);
-export const adFormatEnum = pgEnum("ad_format_enum", [
-  "single-image",
-  "carousel",
-  "video",
-  "story",
-]);
-export const adObjectiveEnum = pgEnum("ad_objective_enum", [
-  "awareness",
-  "traffic",
-  "sales",
-]);
-export const emailTypeEnum = pgEnum("email_type_enum", [
-  "abandoned-cart",
-  "post-purchase",
-  "new-product-launch",
-  "sale-promotion",
-  "win-back",
-  "educational",
-]);
-export const batchStatusEnum = pgEnum("batch_status_enum", [
-  "queued",
-  "running",
   "completed",
   "failed",
-  "cancelled",
 ]);
 
+export const toolTypeEnum = pgEnum("tool_type_enum", [
+  "headline",
+  "description",
+  "bullets",
+  "ad_copy",
+  "email_subject",
+]);
+
+// Brand-related enums
+export const revenueBracketEnum = pgEnum("revenue_bracket_enum", [
+  "< $100K",
+  "$100K - $500K",
+  "$500K - $1M",
+  "$1M - $5M",
+  "$5M - $10M",
+  "$10M+",
+]);
+
+export const platformEnum = pgEnum("platform_enum", [
+  "Shopify",
+  "WooCommerce",
+  "BigCommerce",
+  "Magento",
+  "Custom",
+  "Other",
+]);
+
+export const brandToneEnum = pgEnum("brand_tone_enum", [
+  "professional",
+  "casual",
+  "luxury",
+  "playful",
+  "technical",
+  "energetic",
+]);
+
+// ========================================
+// CORE TABLES
+// ========================================
+
 // Users Table
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  email: varchar("email", { length: 320 }).notNull().unique(),
-  name: text("name"),
-  password: text("password"), // nullable for OAuth users
-  image: text("image"),
-  emailVerified: timestamp("email_verified", { mode: "date" }),
-  plan: planEnum("plan").default("free").notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: varchar("email", { length: 320 }).notNull().unique(),
+    name: text("name"),
+    password: text("password"),
+    image: text("image"),
+    emailVerified: timestamp("email_verified", { mode: "date" }),
+    plan: planEnum("plan").default("free").notNull(),
+    isAdmin: boolean("is_admin").default(false).notNull(),
 
-// Brand profiles — onboarded brand-level preferences
-export const brandProfiles = pgTable("brand_profiles", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  company_name: text("company_name").notNull(),
-  revenue_bracket: varchar("revenue_bracket", { length: 64 }),
-  platform: varchar("platform", { length: 64 }), // e.g. Shopify, WooCommerce, Custom
-  currency: varchar("currency", { length: 8 }).default("USD").notNull(),
-  brand_tone_sample: text("brand_tone_sample"), // 1-5 sentences
-  primary_audience: text("primary_audience"),
-  skus_count: integer("skus_count").default(0).notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+    // Denormalized for quick access
+    hasCompletedOnboarding: boolean("has_completed_onboarding")
+      .default(false)
+      .notNull(),
 
-// NextAuth Accounts Table
-export const accounts = pgTable("accounts", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  type: varchar("type", { length: 255 }).notNull(),
-  provider: varchar("provider", { length: 255 }).notNull(),
-  providerAccountId: varchar("provider_account_id", { length: 255 }).notNull(),
-  refresh_token: text("refresh_token"),
-  access_token: text("access_token"),
-  expires_at: integer("expires_at"),
-  token_type: varchar("token_type", { length: 255 }),
-  scope: varchar("scope", { length: 255 }),
-  id_token: text("id_token"),
-  session_state: varchar("session_state", { length: 255 }),
-});
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    emailIdx: index("users_email_idx").on(table.email),
+  })
+);
 
-// NextAuth Sessions Table
+// ========================================
+// BRAND PROFILE TABLES (Consolidated)
+// ========================================
+
+// Main Brand Profile - Contains ALL brand data in one table for MVP
+export const brandProfiles = pgTable(
+  "brand_profiles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull()
+      .unique(), // One brand profile per user for MVP
+
+    // ========== Business Foundation ==========
+    companyName: text("company_name").notNull(),
+    websiteUrl: text("website_url"),
+    brandCategory: text("brand_category"),
+
+    // ========== Business Metrics ==========
+    revenueBracket: revenueBracketEnum("revenue_bracket"),
+    platform: platformEnum("platform"),
+    currency: varchar("currency", { length: 8 }).default("USD").notNull(),
+    skusCount: integer("skus_count").default(0).notNull(),
+    targetMarketLocation: text("target_market_location"),
+
+    // ========== Brand Identity (Voice & Tone) ==========
+    brandTone: brandToneEnum("brand_tone"),
+    brandToneSample: text("brand_tone_sample"),
+    coreValues: jsonb("core_values").$type<string[]>().default([]),
+    aspirationalIdentity: text("aspirational_identity"),
+    competitorBrands: jsonb("competitor_brands").$type<string[]>().default([]),
+
+    // ========== Target Audience ==========
+    primaryAudience: text("primary_audience"),
+    audienceDemographics: text("audience_demographics"),
+    audienceFrustrations: text("audience_frustrations"),
+    dreamOutcome: text("dream_outcome"),
+
+    // ========== Value Proposition ==========
+    differentiators: jsonb("differentiators").$type<string[]>().default([]),
+    socialProofAssets: jsonb("social_proof_assets")
+      .$type<string[]>()
+      .default([]),
+    uniqueSellingProposition: text("unique_selling_proposition"),
+
+    // ========== Marketing Context ==========
+    preferredChannels: jsonb("preferred_channels")
+      .$type<string[]>()
+      .default([]),
+    averageOrderValue: numeric("average_order_value", {
+      precision: 10,
+      scale: 2,
+    }),
+    topSellingProducts: jsonb("top_selling_products")
+      .$type<string[]>()
+      .default([]),
+    targetCta: text("target_cta").default("Shop Now"),
+    typicalDiscounts: text("typical_discounts"),
+    shippingPolicy: text("shipping_policy"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("brand_profiles_user_idx").on(table.userId),
+  })
+);
+
+// ========================================
+// CONTENT GENERATION TABLES
+// ========================================
+
+// Unified Generation Requests Table (replaces 5 separate tables)
+export const generationRequests = pgTable(
+  "generation_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    brandProfileId: uuid("brand_profile_id")
+      .references(() => brandProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+
+    // Tool identification
+    toolType: toolTypeEnum("tool_type").notNull(),
+
+    // Input & Output (flexible JSON structure per tool)
+    inputs: jsonb("inputs").$type<Record<string, any>>().notNull(),
+    outputs: jsonb("outputs").$type<Record<string, any>>(),
+
+    // Metadata
+    status: requestStatusEnum("status").default("pending").notNull(),
+    tokensUsed: integer("tokens_used"),
+    costCents: integer("cost_cents"),
+    processingTimeMs: integer("processing_time_ms"),
+    errorMessage: text("error_message"),
+
+    // Optional product association (for single-product generation)
+    productSku: varchar("product_sku", { length: 128 }),
+    productName: text("product_name"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => ({
+    userIdx: index("gen_requests_user_idx").on(table.userId),
+    brandIdx: index("gen_requests_brand_idx").on(table.brandProfileId),
+    toolTypeIdx: index("gen_requests_tool_type_idx").on(table.toolType),
+    statusIdx: index("gen_requests_status_idx").on(table.status),
+    createdAtIdx: index("gen_requests_created_at_idx").on(table.createdAt),
+  })
+);
+
+// ========================================
+// BATCH PROCESSING
+// ========================================
+
+export const batchJobs = pgTable(
+  "batch_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    brandProfileId: uuid("brand_profile_id")
+      .references(() => brandProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+
+    // Batch details
+    filename: text("filename").notNull(),
+    toolType: toolTypeEnum("tool_type").notNull(),
+    totalRows: integer("total_rows").default(0).notNull(),
+    processedRows: integer("processed_rows").default(0).notNull(),
+    successfulRows: integer("successful_rows").default(0).notNull(),
+    failedRows: integer("failed_rows").default(0).notNull(),
+
+    // Status tracking
+    status: requestStatusEnum("status").default("pending").notNull(),
+
+    // Results
+    inputFileUrl: text("input_file_url"),
+    outputFileUrl: text("output_file_url"),
+    errorSummary: text("error_summary"),
+
+    // Timing
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    estimatedCompletionAt: timestamp("estimated_completion_at"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => ({
+    userIdx: index("batch_jobs_user_idx").on(table.userId),
+    statusIdx: index("batch_jobs_status_idx").on(table.status),
+    createdAtIdx: index("batch_jobs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// Batch Rows - Individual results from batch processing
+export const batchResults = pgTable(
+  "batch_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    batchJobId: uuid("batch_job_id")
+      .references(() => batchJobs.id, { onDelete: "cascade" })
+      .notNull(),
+
+    rowIndex: integer("row_index").notNull(),
+
+    // Input & Output
+    inputs: jsonb("inputs").$type<Record<string, any>>().notNull(),
+    outputs: jsonb("outputs").$type<Record<string, any>>(),
+
+    status: requestStatusEnum("status").default("pending").notNull(),
+    errorMessage: text("error_message"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    batchJobIdx: index("batch_results_job_idx").on(table.batchJobId),
+    statusIdx: index("batch_results_status_idx").on(table.status),
+  })
+);
+
+// ========================================
+// USAGE TRACKING (Simplified for MVP)
+// ========================================
+
+export const usageRecords = pgTable(
+  "usage_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+
+    // Monthly period tracking
+    periodMonth: integer("period_month").notNull(), // 1-12
+    periodYear: integer("period_year").notNull(), // 2025
+
+    // Counters
+    generationCount: integer("generation_count").default(0).notNull(),
+    tokensUsed: integer("tokens_used").default(0).notNull(),
+    batchJobsCount: integer("batch_jobs_count").default(0).notNull(),
+
+    // Cost tracking (optional for MVP)
+    totalCostCents: integer("total_cost_cents").default(0).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => ({
+    userPeriodIdx: index("usage_records_user_period_idx").on(
+      table.userId,
+      table.periodYear,
+      table.periodMonth
+    ),
+  })
+);
+
+// ========================================
+// NEXTAUTH TABLES (Keep as-is)
+// ========================================
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    type: varchar("type", { length: 255 }).notNull(),
+    provider: varchar("provider", { length: 255 }).notNull(),
+    providerAccountId: varchar("provider_account_id", {
+      length: 255,
+    }).notNull(),
+    refreshToken: text("refresh_token"),
+    accessToken: text("access_token"),
+    expiresAt: integer("expires_at"),
+    tokenType: varchar("token_type", { length: 255 }),
+    scope: varchar("scope", { length: 255 }),
+    idToken: text("id_token"),
+    sessionState: varchar("session_state", { length: 255 }),
+  },
+  (table) => ({
+    userIdx: index("accounts_user_idx").on(table.userId),
+  })
+);
+
 export const sessions = pgTable("sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
@@ -136,14 +371,12 @@ export const sessions = pgTable("sessions", {
   expires: timestamp("expires", { mode: "date" }).notNull(),
 });
 
-// NextAuth Verification Tokens Table
 export const verificationTokens = pgTable("verification_tokens", {
   identifier: varchar("identifier", { length: 255 }).notNull(),
   token: varchar("token", { length: 255 }).notNull().unique(),
   expires: timestamp("expires", { mode: "date" }).notNull(),
 });
 
-// Password Reset Tokens Table
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")
@@ -154,195 +387,61 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Products / SKUs (merchant catalog)
-export const products = pgTable("products", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  sku: varchar("sku", { length: 128 }).notNull(),
-  product_name: text("product_name").notNull(),
-  description: text("description"),
-  features: json("features").$type<string[] | null>(), // array of strings
-  differentiators: json("differentiators").$type<string[] | null>(),
-  metadata: json("metadata").$type<Record<string, unknown> | null>(), // e.g. weight, color, dimensions
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+// ========================================
+// RELATIONS (for Drizzle ORM queries)
+// ========================================
 
-// Headline generation requests
-export const headlineRequests = pgTable("headline_requests", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  product_id: uuid("product_id").references(() => products.id),
-  inputs: json("inputs").$type<Record<string, unknown>>().notNull(), // stores the request payload
-  result: json("result").$type<Record<string, unknown> | null>(), // AI outputs
-  headline_type: headlineTypeEnum("headline_type"),
-  status: requestStatusEnum("status").default("pending").notNull(),
-  cost_tokens: integer("cost_tokens"), // optional: token usage
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+export const usersRelations = relations(users, ({ one, many }) => ({
+  brandProfile: one(brandProfiles, {
+    fields: [users.id],
+    references: [brandProfiles.userId],
+  }),
+  generationRequests: many(generationRequests),
+  batchJobs: many(batchJobs),
+  usageRecords: many(usageRecords),
+}));
 
-// Description generation requests
-export const descriptionRequests = pgTable("description_requests", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  product_id: uuid("product_id").references(() => products.id),
-  inputs: json("inputs").$type<Record<string, unknown>>().notNull(),
-  result: json("result").$type<Record<string, unknown> | null>(),
-  tone: toneEnum("tone"),
-  word_count_option: varchar("word_count_option", { length: 32 }),
-  status: requestStatusEnum("status").default("pending").notNull(),
-  cost_tokens: integer("cost_tokens"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+export const brandProfilesRelations = relations(
+  brandProfiles,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [brandProfiles.userId],
+      references: [users.id],
+    }),
+    generationRequests: many(generationRequests),
+    batchJobs: many(batchJobs),
+  })
+);
 
-// Benefit bullets
-export const bulletRequests = pgTable("bullet_requests", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  product_id: uuid("product_id").references(() => products.id),
-  features: json("features").$type<string[]>().notNull(),
-  result: json("result").$type<Record<string, any> | null>(),
-  status: requestStatusEnum("status").default("pending").notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+export const generationRequestsRelations = relations(
+  generationRequests,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [generationRequests.userId],
+      references: [users.id],
+    }),
+    brandProfile: one(brandProfiles, {
+      fields: [generationRequests.brandProfileId],
+      references: [brandProfiles.id],
+    }),
+  })
+);
 
-// Ad copy requests
-export const adRequests = pgTable("ad_requests", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  product_id: uuid("product_id").references(() => products.id),
-  inputs: json("inputs").$type<Record<string, unknown>>().notNull(),
-  ad_format: adFormatEnum("ad_format"),
-  ad_objective: adObjectiveEnum("ad_objective"),
-  result: json("result").$type<Record<string, unknown> | null>(),
-  status: requestStatusEnum("status").default("pending").notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const batchJobsRelations = relations(batchJobs, ({ one, many }) => ({
+  user: one(users, {
+    fields: [batchJobs.userId],
+    references: [users.id],
+  }),
+  brandProfile: one(brandProfiles, {
+    fields: [batchJobs.brandProfileId],
+    references: [brandProfiles.id],
+  }),
+  results: many(batchResults),
+}));
 
-// Subject line requests
-export const subjectLineRequests = pgTable("subjectline_requests", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  inputs: json("inputs").$type<Record<string, unknown>>().notNull(),
-  email_type: emailTypeEnum("email_type"),
-  result: json("result").$type<Record<string, unknown> | null>(),
-  status: requestStatusEnum("status").default("pending").notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Batch processing tables
-export const batches = pgTable("batches", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  brand_profile_id: uuid("brand_profile_id")
-    .references(() => brandProfiles.id)
-    .notNull(),
-  filename: text("filename"),
-  total_rows: integer("total_rows").default(0).notNull(),
-  tools_requested: json("tools_requested").$type<string[]>(), // e.g. ["headlines","descriptions"]
-  status: batchStatusEnum("status").default("queued").notNull(),
-  result_urls: json("result_urls").$type<Record<string, string> | null>(), // download links per tool
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  started_at: timestamp("started_at"),
-  completed_at: timestamp("completed_at"),
-  error_summary: text("error_summary"),
-});
-
-export const batchRows = pgTable("batch_rows", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  batch_id: uuid("batch_id")
-    .references(() => batches.id)
-    .notNull(),
-  row_index: integer("row_index").notNull(),
-  input: json("input").$type<Record<string, unknown>>().notNull(), // raw row as JSON
-  outputs: json("outputs").$type<Record<string, unknown> | null>(), // per-tool results
-  status: requestStatusEnum("status").default("pending").notNull(),
-  error_message: text("error_message"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
-
-// LLM call logging (token usage, latency) — keep for cost-analysis; can be rolled up/archived
-export const llmCalls = pgTable("llm_calls", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  request_table: varchar("request_table", { length: 128 }), // e.g. headline_requests
-  request_id: uuid("request_id"), // link to the request
-  model: varchar("model", { length: 128 }),
-  prompt_hash: varchar("prompt_hash", { length: 128 }),
-  prompt_tokens: integer("prompt_tokens"),
-  completion_tokens: integer("completion_tokens"),
-  total_tokens: integer("total_tokens"),
-  cost_estimate_cents: integer("cost_estimate_cents"),
-  duration_ms: integer("duration_ms"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
-
-// API Keys (for users wanting their own provider keys) - store encrypted in prod
-export const apiKeys = pgTable("api_keys", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  provider: varchar("provider", { length: 64 }).notNull(), // openai, azure, etc
-  key_encrypted: text("key_encrypted").notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  last_used_at: timestamp("last_used_at"),
-});
-
-// Exports table - when user downloads CSV/zip
-export const exportsTable = pgTable("exports", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  batch_id: uuid("batch_id").references(() => batches.id),
-  tool: varchar("tool", { length: 64 }).notNull(), // headlines / descriptions / bullets
-  url: text("url").notNull(),
-  filename: text("filename"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Usage & quotas for enforcement
-export const usage = pgTable("usage", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  period_start: timestamp("period_start").notNull(),
-  period_end: timestamp("period_end").notNull(),
-  llm_calls_count: integer("llm_calls_count").default(0).notNull(),
-  llm_tokens_used: integer("llm_tokens_used").default(0).notNull(),
-  agent_runs: integer("agent_runs").default(0).notNull(),
-});
+export const batchResultsRelations = relations(batchResults, ({ one }) => ({
+  batchJob: one(batchJobs, {
+    fields: [batchResults.batchJobId],
+    references: [batchJobs.id],
+  }),
+}));
