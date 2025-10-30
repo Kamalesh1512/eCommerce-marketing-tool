@@ -1,5 +1,5 @@
 {
-  "id": "15033c72-1e64-4bd1-99a7-e2f8452fe467",
+  "id": "4a1f2250-4b2d-4375-8846-544577bb8967",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -499,9 +499,10 @@
         },
         "target_market_location": {
           "name": "target_market_location",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "brand_tone": {
           "name": "brand_tone",
@@ -538,9 +539,10 @@
         },
         "primary_audience": {
           "name": "primary_audience",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "audience_demographics": {
           "name": "audience_demographics",

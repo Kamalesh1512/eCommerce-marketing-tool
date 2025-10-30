@@ -125,7 +125,9 @@ export const brandProfiles = pgTable(
     platform: platformEnum("platform"),
     currency: varchar("currency", { length: 8 }).default("USD").notNull(),
     skusCount: integer("skus_count").default(0).notNull(),
-    targetMarketLocation: text("target_market_location"),
+    targetMarketLocation: jsonb("target_market_location")
+      .$type<string[]>()
+      .default([]),
 
     // ========== Brand Identity (Voice & Tone) ==========
     brandTone: brandToneEnum("brand_tone"),
@@ -135,7 +137,7 @@ export const brandProfiles = pgTable(
     competitorBrands: jsonb("competitor_brands").$type<string[]>().default([]),
 
     // ========== Target Audience ==========
-    primaryAudience: text("primary_audience"),
+    primaryAudience: jsonb("primary_audience").$type<string[]>().default([]),
     audienceDemographics: text("audience_demographics"),
     audienceFrustrations: text("audience_frustrations"),
     dreamOutcome: text("dream_outcome"),
@@ -205,10 +207,7 @@ export const generationRequests = pgTable(
     productName: text("product_name"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`)
-      .notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("gen_requests_user_idx").on(table.userId),
@@ -387,6 +386,10 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const Waitlist = pgTable("waitlist", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email").notNull(),
+});
 // ========================================
 // RELATIONS (for Drizzle ORM queries)
 // ========================================

@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { Sparkles, Mail, Github, Twitter, Linkedin } from "lucide-react";
 import { Separator } from "../ui/separator";
@@ -8,32 +8,49 @@ export const Footer = () => {
 
   const footerLinks = {
     product: [
-      { label: 'Features', href: '/features' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'Dashboard', href: '/dashboard' },
+      {
+        label: "Headline Generator",
+        href: "/tools/headline-generator",
+      },
+      {
+        label: "Product Description",
+        href: "/tools/description-generator",
+      },
+      {
+        label: "Benefit Bullets",
+        href: "/tools/benefit-bullets",
+      },
+      {
+        label: "Ad Copy Generator",
+        href: "/tools/ad-copy-generator",
+      },
+      {
+        label: "Email Subject Lines",
+        href: "/tools/email-subject-line",
+      },
     ],
     company: [
-      { label: 'About', href: '/about' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Careers', href: '/careers' },
+      { label: "About", href: "/about" },
+      { label: "Blog", href: "/blog" },
+      // { label: "Careers", href: "/careers" },
     ],
     legal: [
-      { label: 'Privacy', href: '/privacy' },
-      { label: 'Terms', href: '/terms' },
-      { label: 'Cookie Policy', href: '/cookies' },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+      // { label: "Cookie Policy", href: "/cookies" },
     ],
     support: [
-      { label: 'Help Center', href: '/help' },
-      { label: 'Contact', href: '/contact' },
-      { label: 'Status', href: '/status' },
+      { label: "Help Center", href: "/help" },
+      { label: "Contact", href: "/contact" },
+      { label: "Status", href: "/status" },
     ],
   };
 
   const socialLinks = [
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Github, href: '#', label: 'GitHub' },
-    { icon: Linkedin, href: '#', label: 'LinkedIn' },
-    { icon: Mail, href: 'mailto:hello@copyforge.com', label: 'Email' },
+    { icon: Twitter, href: "#", label: "Twitter" },
+    { icon: Github, href: "#", label: "GitHub" },
+    { icon: Linkedin, href: "#", label: "LinkedIn" },
+    { icon: Mail, href: "mailto:hello@copyforge.com", label: "Email" },
   ];
 
   return (
@@ -42,7 +59,10 @@ export const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-8">
           {/* Brand Section */}
           <div className="col-span-2 md:col-span-2">
-            <a href="/" className="flex items-center gap-2 font-bold text-xl mb-4">
+            <a
+              href="/"
+              className="flex items-center gap-2 font-bold text-xl mb-4"
+            >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
@@ -51,7 +71,8 @@ export const Footer = () => {
               </span>
             </a>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-              AI-powered e-commerce marketing tools to boost your brand and optimize campaigns effortlessly.
+              AI-powered e-commerce marketing tools to boost your brand and
+              optimize campaigns effortlessly.
             </p>
             <div className="flex items-center gap-3">
               {socialLinks.map((social) => (
@@ -163,4 +184,4 @@ export const Footer = () => {
       </div>
     </footer>
   );
-}
+};

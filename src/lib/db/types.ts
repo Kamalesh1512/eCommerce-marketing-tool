@@ -52,129 +52,6 @@ export type Platform = "Shopify" | "WooCommerce" | "BigCommerce" | "Magento" | "
 
 export type BrandTone = "professional" | "casual" | "luxury" | "playful" | "technical" | "energetic";
 
-// ========================================
-// Tool-Specific Input/Output Types
-// ========================================
-
-// Headline Generator
-export interface HeadlineGeneratorInput {
-  productName: string;
-  primaryTarget: string;
-  mainBenefit: string;
-  secondaryBenefit?: string;
-  dreamOutcome: string;
-  howBetter: string;
-  headlineType?: "benefit-driven" | "question" | "how-to" | "list" | "challenge" | "testimonial";
-}
-
-export interface HeadlineGeneratorOutput {
-  headlines: Array<{
-    text: string;
-    type: string;
-    score?: number;
-  }>;
-  topPick?: {
-    text: string;
-    reason: string;
-  };
-}
-
-// Product Description Generator
-export interface DescriptionGeneratorInput {
-  productName: string;
-  features: string[];
-  primaryTarget: string;
-  mainBenefit: string;
-  dreamOutcome: string;
-  tone: "professional" | "casual-friendly" | "luxury-sophisticated" | "technical-detailed" | "energetic-exciting";
-  wordCount: "low" | "medium" | "high"; // 150, 300, 500+ words
-}
-
-export interface DescriptionGeneratorOutput {
-  descriptions: Array<{
-    text: string;
-    wordCount: number;
-    readabilityScore?: number;
-  }>;
-  bestOption?: {
-    text: string;
-    reason: string;
-  };
-}
-
-// Benefit Bullets Converter
-export interface BenefitBulletsInput {
-  features: string[];
-  productContext?: string;
-  targetAudience?: string;
-}
-
-export interface BenefitBulletsOutput {
-  bullets: Array<{
-    feature: string;
-    benefit: string;
-    dreamOutcome?: string;
-  }>;
-}
-
-// Ad Copy Generator
-export interface AdCopyGeneratorInput {
-  productName: string;
-  avatarPain: string;
-  dreamOutcome: string;
-  adObjective: "awareness" | "traffic" | "sales";
-  targetAudience: {
-    age?: string;
-    interests?: string[];
-  };
-  adFormat: "single-image" | "carousel" | "video" | "story";
-  promotionDetails?: {
-    type?: "discount" | "bundle" | "free-shipping";
-    value?: string;
-  };
-  duration?: string;
-  characterLimit?: number;
-}
-
-export interface AdCopyGeneratorOutput {
-  facebookAd: {
-    headline: string;
-    primaryText: string;
-    description?: string;
-    cta: string;
-  };
-  instagramAd: {
-    caption: string;
-    hashtags?: string[];
-    cta: string;
-  };
-}
-
-// Email Subject Line Generator
-export interface EmailSubjectLineInput {
-  emailType: "abandoned-cart" | "post-purchase" | "new-product-launch" | "sale-promotion" | "win-back" | "educational";
-  offerDetails?: string;
-  timeLimit?: string;
-  additionalDetails?: Record<string, any>;
-  subjectLineApproach?: "curiosity" | "urgency" | "benefit" | "personalized" | "question" | "social-proof" | "fomo";
-  personalization?: {
-    firstName?: string;
-    cartValue?: string;
-  };
-}
-
-export interface EmailSubjectLineOutput {
-  subjectLines: Array<{
-    text: string;
-    approach: string;
-    score?: number;
-  }>;
-  bestSuggestion?: {
-    text: string;
-    reason: string;
-  };
-  bestPractices?: string[];
-}
 
 // ========================================
 // API Request/Response Types
@@ -192,7 +69,7 @@ export interface CreateBrandProfileRequest {
   platform?: Platform;
   currency?: string;
   skusCount?: number;
-  targetMarketLocation?: string;
+  targetMarketLocation?: string[];
   
   // Brand Identity
   brandTone?: BrandTone;
@@ -202,7 +79,7 @@ export interface CreateBrandProfileRequest {
   competitorBrands?: string[];
   
   // Target Audience
-  primaryAudience?: string;
+  primaryAudience?: string[];
   audienceDemographics?: string;
   audienceFrustrations?: string;
   dreamOutcome?: string;
