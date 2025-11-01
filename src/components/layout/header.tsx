@@ -148,12 +148,12 @@ export const Header: React.FC<HeaderProps> = ({ user }) => {
               </DropdownMenu>
             ) : (
               <>
-                <Button variant="ghost" asChild>
+                {/* <Button variant="ghost" asChild>
                   <a href="/login">Log in</a>
                 </Button>
                 <Button asChild>
                   <a href="/signup">Get Started</a>
-                </Button>
+                </Button> */}
               </>
             )}
           </div>

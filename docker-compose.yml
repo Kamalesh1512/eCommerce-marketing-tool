@@ -1,65 +1,19 @@
-services:
-  # Redis
-  redis:
-    image: redis:7-alpine
-    container_name: skroub_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - app-net
+version: "3.9"
 
-  # Shared image for web + worker
-  app:
+services:
+  web:
+    container_name: ecommtool_web
     build:
       context: .
       dockerfile: src/docker/Dockerfile
-      target: runner
-    image: kamalesh1512/skroub:latest
+    image: kamalesh1512/ecommtool_web:latest
+    ports:
+      - "127.0.0.1:3000:3000"  # bind to localhost (good if using Nginx reverse proxy)
+    restart: always
     env_file:
       - .env.production
     environment:
       NODE_ENV: production
-      REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgres://postgres:Admin1997@postgres:5432/skroub
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - app-net
-
-  # Web server
-  web:
-    extends:
-      service: app
-    ports:
-      - "3000:3000"
+      NEXTAUTH_SECRET: XtHlYn1lUpw9c8Wc+yzCj7ft/9mkinUwI1pDyUM8F/M=
+      NEXTAUTH_URL: 
     command: ["npm", "run", "start"]
-    restart: always
-
-  # Worker(s)
-  worker:
-    extends:
-      service: app
-    command: ["npm", "run", "worker"]
-    restart: always
-    deploy:
-      replicas: 2 # scale workers easily
-
-networks:
-  app-net:
-    driver: bridge
-
-volumes:
-  redis_data:
-  postgres_data:
