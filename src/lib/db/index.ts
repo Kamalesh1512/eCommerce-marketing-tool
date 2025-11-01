@@ -1,43 +1,40 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 const { Pool } = pg;
-import * as schema from './schema';
+import * as schema from "./schema";
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === "production";
 
-const pool = new Pool(
-  isProduction
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isProduction
     ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: true }, // ✅ DO uses standard SSL
-        max: 5,
-        idleTimeoutMillis: 10000,
+        rejectUnauthorized: false,
       }
-    : {
-        connectionString: process.env.DATABASE_URL,
-        ssl: false,
-        max: 5,
-        idleTimeoutMillis: 10000,
-      }
-);
+    : false,
+  max: 5,
+  idleTimeoutMillis: 10000,
+});
 
 let isConnected = false;
 
 const connectDB = async () => {
   if (isConnected) {
-    console.log('Database connection already established!');
+    console.log("Database connection already established!");
     return;
   }
 
   try {
     await pool.connect();
     isConnected = true;
-    console.log(`Connected to the ${isProduction ? 'production' : 'local'} database!`);
+    console.log(
+      `✅ Connected to the ${isProduction ? "production" : "local"} database!`
+    );
   } catch (err) {
-    console.error('Database connection error:', err);
+    console.error("❌ Database connection error:", err);
   }
 };
 
